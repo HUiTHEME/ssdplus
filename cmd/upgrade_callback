@@ -1,0 +1,9 @@
+#!/bin/bash
+# 升级后：沿用原有数据目录，只做目录检查
+set -u
+
+DATA_DIR="${TRIM_PKGVAR:-/var/apps/ssdplus/var}"
+mkdir -p "${DATA_DIR}"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - 已升级到 ${TRIM_APPVER:-unknown}" >> "${DATA_DIR}/info.log"
+
+exit 0

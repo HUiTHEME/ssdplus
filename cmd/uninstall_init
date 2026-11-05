@@ -1,0 +1,10 @@
+#!/bin/bash
+# 卸载前：停止正在运行的服务
+set -u
+
+CMD_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${CMD_DIR}/main" ]; then
+    "${CMD_DIR}/main" stop
+fi
+
+exit 0

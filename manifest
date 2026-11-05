@@ -1,0 +1,15 @@
+appname               = ssdplus
+version               = 1.0.0
+display_name          = SSD助手
+desc                  = SSD助手是帮助你掌握固态硬盘健康与寿命的使用管理工具：自动采集每块 SSD 的读写总量、读写速率、温度与健康度，解析 SMART 中的寿命消耗、通电时长、异常断电、介质错误等关键指标，并以日历热力图呈现长期使用趋势，帮助你及时发现异常、评估剩余寿命，在硬盘真正损坏之前做好备份与更换准备。
+source                = thirdparty
+platform              = all
+maintainer            = 疯狂的大叔
+maintainer_url        = https://appfn.cn
+distributor           = 疯狂的大叔
+distributor_url       = https://appfn.cn
+os_min_version        = 1.0.0
+desktop_uidir         = ui
+desktop_applaunchname = ssdplus.main
+ctl_stop              = true
+changelog             = 1.0.0：首个正式版本。

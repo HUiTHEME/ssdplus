@@ -1,0 +1,11 @@
+#!/bin/bash
+# 配置变更后：重启服务使新配置生效
+set -u
+
+CMD_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -x "${CMD_DIR}/main" ]; then
+    "${CMD_DIR}/main" stop
+    "${CMD_DIR}/main" start
+fi
+
+exit 0

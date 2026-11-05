@@ -1,0 +1,175 @@
+#!/bin/bash
+# SSD 读写记录 —— 运行控制脚本
+# 用法: main start | stop | status
+
+APP_NAME="ssdplus"
+APP_DIR="${TRIM_APPDEST:-/var/apps/${APP_NAME}/target}"
+DATA_DIR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+ETC_DIR="${TRIM_PKGETC:-/var/apps/${APP_NAME}/etc}"
+# 飞牛统一网关：只监听应用目录下的 Unix Socket，不再占用 TCP 端口
+SOCK="${APP_DIR}/app.sock"
+PREFIX="/app/ssdplus"
+
+LOG_FILE="${DATA_DIR}/info.log"
+PID_FILE="${DATA_DIR}/app.pid"
+SERVER="${APP_DIR}/server/main.py"
+WWW_DIR="${APP_DIR}/www"
+
+log_msg() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "${LOG_FILE}"
+}
+
+fail_msg() {
+    log_msg "$1"
+    # 应用中心会把该文件内容显示在失败弹窗里，附上最近日志便于用户自查
+    if [ -n "${TRIM_TEMP_LOGFILE:-}" ]; then
+        {
+            echo "$1"
+            echo "---- ${LOG_FILE} ----"
+            tail -n 10 "${LOG_FILE}" 2>/dev/null
+        } > "${TRIM_TEMP_LOGFILE}"
+    fi
+}
+
+# 定位 Python 解释器：优先应用自带，其次系统运行时，最后 PATH
+find_python() {
+    local candidate
+    for candidate in \
+        "${APP_DIR}/server/python/bin/python3" \
+        "/var/apps/python312/target/bin/python3" \
+        "/var/apps/python311/target/bin/python3" \
+        "/usr/bin/python3" \
+        "/usr/local/bin/python3"; do
+        if [ -x "${candidate}" ]; then
+            echo "${candidate}"
+            return 0
+        fi
+    done
+    command -v python3 2>/dev/null
+}
+
+check_process() {
+    local pid=$1
+    [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null
+}
+
+running_pid() {
+    local pid
+    if [ -r "${PID_FILE}" ]; then
+        pid=$(head -n 1 "${PID_FILE}" | tr -d '[:space:]')
+        if check_process "${pid}"; then
+            echo "${pid}"
+            return 0
+        fi
+        rm -f "${PID_FILE}"
+    fi
+    # pid 文件丢失时，按端口在 /proc 里找回本应用进程
+    pid=$(find_pid_by_cmdline)
+    if [ -n "${pid}" ]; then
+        printf "%s" "${pid}" > "${PID_FILE}"
+        echo "${pid}"
+        return 0
+    fi
+    return 1
+}
+
+find_pid_by_cmdline() {
+    local dir cmdline
+    for dir in /proc/[0-9]*; do
+        [ -r "${dir}/cmdline" ] || continue
+        cmdline=$(tr '\0' ' ' < "${dir}/cmdline" 2>/dev/null)
+        case "${cmdline}" in
+        *"server/main.py --socket ${SOCK}"*)
+            echo "${dir#/proc/}"
+            return 0
+            ;;
+        esac
+    done
+    return 1
+}
+
+start_process() {
+    local pid python
+    if pid=$(running_pid); then
+        log_msg "服务已在运行 (pid=${pid})"
+        return 0
+    fi
+
+    mkdir -p "${DATA_DIR}" "${ETC_DIR}"
+    # 日志超过 2MB 时轮转一次，避免无限增长
+    if [ -f "${LOG_FILE}" ] && [ "$(wc -c < "${LOG_FILE}")" -gt 2097152 ]; then
+        mv -f "${LOG_FILE}" "${LOG_FILE}.1"
+    fi
+
+    if [ ! -f "${SERVER}" ]; then
+        fail_msg "缺少后端程序：${SERVER}"
+        return 1
+    fi
+
+    python=$(find_python)
+    if [ -z "${python}" ]; then
+        fail_msg "未找到 Python 3 运行时，请先在应用中心安装「Python 3」运行时。"
+        return 1
+    fi
+
+    log_msg "启动服务：${python} ${SERVER} --socket ${SOCK}"
+    "${python}" "${SERVER}" \
+        --socket "${SOCK}" \
+        --prefix "${PREFIX}" \
+        --www "${WWW_DIR}" \
+        --data "${DATA_DIR}" \
+        --etc "${ETC_DIR}" >> "${LOG_FILE}" 2>&1 &
+    pid=$!
+    printf "%s" "${pid}" > "${PID_FILE}"
+
+    sleep 1
+    if check_process "${pid}"; then
+        log_msg "服务已启动 (pid=${pid}, socket=${SOCK})"
+        return 0
+    fi
+
+    fail_msg "服务启动失败，请查看日志：${LOG_FILE}"
+    rm -f "${PID_FILE}"
+    return 1
+}
+
+stop_process() {
+    local pid count
+    if ! pid=$(running_pid); then
+        log_msg "服务未在运行"
+        return 0
+    fi
+
+    log_msg "停止服务 (pid=${pid})"
+    kill -TERM "${pid}" >> "${LOG_FILE}" 2>&1
+    count=0
+    while check_process "${pid}" && [ ${count} -lt 10 ]; do
+        sleep 1
+        count=$((count + 1))
+    done
+    if check_process "${pid}"; then
+        log_msg "强制结束 (pid=${pid})"
+        kill -KILL "${pid}" >> "${LOG_FILE}" 2>&1
+    fi
+    rm -f "${PID_FILE}" "${SOCK}"
+    return 0
+}
+
+case "$1" in
+start)
+    start_process
+    ;;
+stop)
+    stop_process
+    ;;
+status)
+    if running_pid > /dev/null; then
+        exit 0
+    fi
+    exit 3
+    ;;
+*)
+    fail_msg "未知命令: $1"
+    exit 1
+    ;;
+esac

@@ -1,0 +1,11 @@
+#!/bin/bash
+# 安装后：准备数据目录
+set -u
+
+DATA_DIR="${TRIM_PKGVAR:-/var/apps/ssdplus/var}"
+ETC_DIR="${TRIM_PKGETC:-/var/apps/ssdplus/etc}"
+
+mkdir -p "${DATA_DIR}" "${ETC_DIR}"
+echo "$(date '+%Y-%m-%d %H:%M:%S') - 安装完成，数据目录：${DATA_DIR}" >> "${DATA_DIR}/info.log"
+
+exit 0

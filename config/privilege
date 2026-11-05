@@ -1,0 +1,9 @@
+{
+    "defaults":
+    {
+        "run-as": "root"
+    },
+    "username": "ssdplus",
+    "groupname": "ssdplus",
+    "join-groups": ["disk"]
+}

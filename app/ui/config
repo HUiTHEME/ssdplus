@@ -1,0 +1,14 @@
+{
+    ".url": {
+        "ssdplus.main": {
+            "title": "SSD助手",
+            "icon": "images/icon_{0}.png",
+            "type": "iframe",
+            "protocol": "",
+            "gatewayPrefix": "/app/ssdplus",
+            "gatewaySocket": "app.sock",
+            "url": "/app/ssdplus/",
+            "allUsers": true
+        }
+    }
+}
